@@ -51,14 +51,20 @@ pthread_mutex_t queue_mutex[L][2] = {{ PTHREAD_MUTEX_INITIALIZER }};
 int l_clock = 0;
 
 void incrementClk1(){
+    pthread_mutex_lock(&clock_mutex);
     l_clock++; 
+    pthread_mutex_unlock(&clock_mutex);
 }
 void incrementClk2(int i_clock){ 
+    pthread_mutex_lock(&clock_mutex);
     l_clock = max(l_clock, i_clock) + 1;
+    pthread_mutex_unlock(&clock_mutex);
 }
 
-void initQueue(struct Queue * qu){
-    qu->size = 0;
+void initQueue(int id1, int id2){
+    pthread_mutex_lock(&queue_mutex[id1][id2]);
+    queues[id1][id2].size = 0;
+    pthread_mutex_unlock(&queue_mutex[id1][id2]);
 }
 
 //debug functions
@@ -66,17 +72,21 @@ void printRequest(struct Request * req){
     printf("id: %d\tclk: %d\n",req->id, req->clk);
 }
 
-void printQueue(struct Queue * qu){
+void printQueue(int id1, int id2){
+    pthread_mutex_lock(&queue_mutex[id1][id2]);
+    struct Queue * qu = &queues[id1][id2];
     int i=0;
     printf("queue size: %ld\n",qu->size);
     for(i = 0; i < qu->size; i++){
         printRequest(&qu->queue[i]);
     }
+    pthread_mutex_unlock(&queue_mutex[id1][id2]);
 }
 
 //insert / remove from queue
-void insertQ(struct Queue * qu, struct Request req){
-    //TODO mutex
+void insertQ(int id1, int id2, struct Request req){
+    pthread_mutex_lock(&queue_mutex[id1][id2]);
+    struct Queue * qu = &queues[id1][id2];
     if(qu->size == 0){
         qu->queue[0] = req;
     } else {
@@ -93,10 +103,13 @@ void insertQ(struct Queue * qu, struct Request req){
     }
 
     qu->size++;
+    pthread_mutex_unlock(&queue_mutex[id1][id2]);
+    
 }
 
-void removeQ(struct Queue * qu, struct Request req){
-    //TODO mutex
+void removeQ(int id1, int id2, struct Request req){
+    pthread_mutex_lock(&queue_mutex[id1][id2]);    
+    struct Queue * qu = &queues[id1][id2];
     for(int i = 0; i<qu->size; i++){
         if(qu->queue[i].id == req.id){
             for(int j=i; j<qu->size; j++){
@@ -106,15 +119,22 @@ void removeQ(struct Queue * qu, struct Request req){
         }
     }
     qu->size--;
+    pthread_mutex_unlock(&queue_mutex[id1][id2]);
 }
 
-int whereIsMyRequest(struct Queue * qu){
-    //TODO mutex
+int whereIsMyRequest(int id1, int id2){
+    pthread_mutex_lock(&queue_mutex[id1][id2]);
+    struct Queue * qu = &queues[id1][id2];
     int i = 0;
+    int ret = -1;
     for(i=0; i<qu->size; i++){
-        if(qu->queue[i].id == my_id) return i;
+        if(qu->queue[i].id == my_id){
+            ret = i;
+            break;
+        }
     }
-    return -1;
+    pthread_mutex_unlock(&queue_mutex[id1][id2]);
+    return ret;
 }
 
 //airplane operations
@@ -147,6 +167,7 @@ void requestCriticalSection(int id1, int id2){
     //TODO
     printf("%d: Chcę %d %d\n", my_id, id1, id2);
     confirmation_counter = 0;
+    //place my event
     //send broadcast
     //await for confirm
     //await for place in queue
@@ -155,6 +176,7 @@ void requestCriticalSection(int id1, int id2){
 void releaseCriticalSection(int id1, int id2){
     //TODO
     printf("%d: Zwalniam %d %d\n", my_id, id1, id2);
+    //remove my event
     //send broadcast
 }
 
@@ -184,39 +206,10 @@ int main( int argc, char **argv ){
     //init queues
     {
         for(int i = 0; i<L; i++){
-            initQueue(&queues[i][RUNWAY]);
-            initQueue(&queues[i][HANGAR]);
+            initQueue(i, RUNWAY);
+            initQueue(i, HANGAR);
         }
     }
-
-    //--queue tests--//
-
-    // struct Request req1, req2, req3, req4, req5;
-    // req1.id = 1; req1.clk = 2;
-    // req2.id = 2; req2.clk = 4;
-    // req3.id = 3; req3.clk = 3;
-    // req4.id = 4; req4.clk = 3;
-    // req5.id = 5; req5.clk = 1;
-
-    //initQueue(&queues[0][0]);
-
-    // insertQ(&queues[0][0],req1);
-    // printQueue(&queues[0][0]);
-    // insertQ(&queues[0][0],req2);
-    // printQueue(&queues[0][0]);
-    // insertQ(&queues[0][0],req3);
-    // printQueue(&queues[0][0]);
-    // insertQ(&queues[0][0],req4);
-    // printQueue(&queues[0][0]);
-    // insertQ(&queues[0][0],req5);
-    // printQueue(&queues[0][0]);
-
-    // removeQ(&queues[0][0],req5);
-    // printQueue(&queues[0][0]);
-
-    // printf("Where %d\n", whereIsMyRequest(&queues[0][0]));
-
-    //--end tests--//
 
     // init random generator
     srand(time(0));
