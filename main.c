@@ -33,6 +33,8 @@ struct Queue{
 
 // my id
 int my_id = 1;
+//number of processors
+int nproc;
 
 //confirmation counter
 int confirmation_counter = 0;
@@ -66,7 +68,7 @@ void printRequest(struct Request * req){
 
 void printQueue(struct Queue * qu){
     int i=0;
-    printf("queue size: %d\n",qu->size);
+    printf("queue size: %ld\n",qu->size);
     for(i = 0; i < qu->size; i++){
         printRequest(&qu->queue[i]);
     }
@@ -77,10 +79,9 @@ void insertQ(struct Queue * qu, struct Request req){
     if(qu->size == 0){
         qu->queue[0] = req;
     } else {
-        int i, j;
         for(int i=qu->size; i>=0; i--){
             if(i==0 || (req.clk == qu->queue[i-1].clk && req.id > qu->queue[i].id) || req.clk > qu->queue[i-1].clk ){
-                for(j=qu->size -1; j >= i; j--){
+                for(int j=qu->size -1; j >= i; j--){
                     qu->queue[j+1] = qu->queue[j];
                 }
                 qu->queue[i] = req;
@@ -94,11 +95,9 @@ void insertQ(struct Queue * qu, struct Request req){
 }
 
 void removeQ(struct Queue * qu, struct Request req){
-    //TODO
-    int i, j;
-    for(i = 0; i<qu->size; i++){
+    for(int i = 0; i<qu->size; i++){
         if(qu->queue[i].id == req.id){
-            for(j=i; j<qu->size; j++){
+            for(int j=i; j<qu->size; j++){
                 qu->queue[j] = qu->queue[j+1];
             }
             break;
@@ -117,40 +116,65 @@ int whereIsMyRequest(struct Queue * qu){
 
 //airplane operations
 void flight(){
-    //TODO
+    int t = rand()%5+5;
+    printf("%d: Lecę, %d s\n", my_id, t);
+    sleep(t);
+    printf("%d: Koniec lotu\n", my_id);
 }
 
 void land(){
-    //TODO
+    printf("%d: Ląduję\n", my_id);
+    sleep(1);
 }
 
 void takeOff(){
-    //TODO
+    printf("%d: Startuję\n", my_id);
+    sleep(1);
 }
 
 void park(){
-    //TODO
+    int t = rand()%4+4;
+    printf("%d: Stoję %d s\n", my_id, t);
+    sleep(t);
+    printf("%d: Koniec stania\n", my_id);
 }
 
 //critical section request / release
 void requestCriticalSection(int id1, int id2){
     //TODO
+    printf("%d: Chcę %d %d\n", my_id, id1, id2);
+    confirmation_counter = 0;
+    //send broadcast
+    //await for confirm
+    //await for place in queue
 }
 
 void releaseCriticalSection(int id1, int id2){
     //TODO
+    printf("%d: Zwalniam %d %d\n", my_id, id1, id2);
+    //send broadcast
 }
 
 int chooseCarrier(){
+    return rand()%L;
+}
+
+void * broadcast_thread(){
     //TODO
+    printf("%d: Zaczynam wątek odbierający broadcast\n", my_id);
     return 0;
 }
 
-int main(){
+void * receive_thread(){
+    //TODO
+    printf("%d: Zaczynam wątek odbierający\n", my_id);
+    return 0;
+}
+
+int main( int argc, char **argv ){
 
     //init queues
     {
-        //int i;
         for(int i = 0; i<L; i++){
             initQueue(&queues[i][RUNWAY]);
             initQueue(&queues[i][HANGAR]);
@@ -159,40 +183,46 @@ int main(){
 
     //--queue tests--//
 
-    struct Request req1, req2, req3, req4, req5;
-    req1.id = 1; req1.clk = 2;
-    req2.id = 2; req2.clk = 4;
-    req3.id = 3; req3.clk = 3;
-    req4.id = 4; req4.clk = 3;
-    req5.id = 5; req5.clk = 1;
+    // struct Request req1, req2, req3, req4, req5;
+    // req1.id = 1; req1.clk = 2;
+    // req2.id = 2; req2.clk = 4;
+    // req3.id = 3; req3.clk = 3;
+    // req4.id = 4; req4.clk = 3;
+    // req5.id = 5; req5.clk = 1;
 
     //initQueue(&queues[0][0]);
 
-    insertQ(&queues[0][0],req1);
-    printQueue(&queues[0][0]);
-    insertQ(&queues[0][0],req2);
-    printQueue(&queues[0][0]);
-    insertQ(&queues[0][0],req3);
-    printQueue(&queues[0][0]);
-    insertQ(&queues[0][0],req4);
-    printQueue(&queues[0][0]);
-    insertQ(&queues[0][0],req5);
-    printQueue(&queues[0][0]);
+    // insertQ(&queues[0][0],req1);
+    // printQueue(&queues[0][0]);
+    // insertQ(&queues[0][0],req2);
+    // printQueue(&queues[0][0]);
+    // insertQ(&queues[0][0],req3);
+    // printQueue(&queues[0][0]);
+    // insertQ(&queues[0][0],req4);
+    // printQueue(&queues[0][0]);
+    // insertQ(&queues[0][0],req5);
+    // printQueue(&queues[0][0]);
 
-    removeQ(&queues[0][0],req5);
-    printQueue(&queues[0][0]);
+    // removeQ(&queues[0][0],req5);
+    // printQueue(&queues[0][0]);
 
-    
-
-    printf("Where %d\n", whereIsMyRequest(&queues[0][0]));
+    // printf("Where %d\n", whereIsMyRequest(&queues[0][0]));
 
     //--end tests--//
 
-    //TODO init random generator
+    // init random generator
+    srand(time(0));
 
-    //TODO init mpi
+    // init mpi
+    // MPI_Init(&argc, &argv);
+    // MPI_Comm_size(MPI_COMM_WORLD, &nproc );
+	// MPI_Comm_rank(MPI_COMM_WORLD, &my_id );
 
     //TODO init threads
+    pthread_t thread1, thread2;
+    pthread_create(&thread1, NULL, broadcast_thread, NULL);
+    pthread_create(&thread2, NULL, receive_thread, NULL);
+
 
     while(1){
         flight();
@@ -206,12 +236,15 @@ int main(){
         takeOff();
         releaseCriticalSection(carrier_i_want, RUNWAY);
         releaseCriticalSection(carrier_i_want, HANGAR);
-        break;
+        break;//comment to run properly
     }
 
-    //TODO join threads
+    // join threads
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
 
-    //TODO finish mpi
+    // finish mpi
+    // MPI_Finalize();
 
     return 0;
 }
