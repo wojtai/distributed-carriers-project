@@ -76,6 +76,7 @@ void printQueue(struct Queue * qu){
 
 //insert / remove from queue
 void insertQ(struct Queue * qu, struct Request req){
+    //TODO mutex
     if(qu->size == 0){
         qu->queue[0] = req;
     } else {
@@ -95,6 +96,7 @@ void insertQ(struct Queue * qu, struct Request req){
 }
 
 void removeQ(struct Queue * qu, struct Request req){
+    //TODO mutex
     for(int i = 0; i<qu->size; i++){
         if(qu->queue[i].id == req.id){
             for(int j=i; j<qu->size; j++){
@@ -107,6 +109,7 @@ void removeQ(struct Queue * qu, struct Request req){
 }
 
 int whereIsMyRequest(struct Queue * qu){
+    //TODO mutex
     int i = 0;
     for(i=0; i<qu->size; i++){
         if(qu->queue[i].id == my_id) return i;
@@ -162,12 +165,17 @@ int chooseCarrier(){
 void * broadcast_thread(){
     //TODO
     printf("%d: Zaczynam wątek odbierający broadcast\n", my_id);
+    //receive
+    //decide
+    //insert/remove
     return 0;
 }
 
 void * receive_thread(){
     //TODO
     printf("%d: Zaczynam wątek odbierający\n", my_id);
+    //receive
+    //increment confirm counter
     return 0;
 }
 
