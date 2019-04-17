@@ -33,6 +33,10 @@ struct Queue{
 
 // my id
 int my_id = 1;
+
+// my request
+struct Request my_request;
+
 //number of processors
 int nproc;
 
@@ -164,20 +168,44 @@ void park(){
 
 //critical section request / release
 void requestCriticalSection(int id1, int id2){
-    //TODO
     printf("%d: Chcę %d %d\n", my_id, id1, id2);
     confirmation_counter = 0;
-    //place my event
+    my_request.id = my_id;
+    my_request.clk = l_clock;
+
+    //place my event in the queue
+    insertQ(id1, id2, my_request);
+
     //send broadcast
+
+    //TODO
+
     //await for confirm
+    while (confirmation_counter < nproc-1) { } // active wait
+
     //await for place in queue
+    int position = -1;
+    if(id2 == HANGAR){
+        position = Ni; //dostęp do hangaru
+    } else if (id2 == RUNWAY){
+        position = 1; //dostęp do pasa
+    } else {
+        printf("%d: To nie powinno się stać %d %d\n", my_id, id1, id2);
+    }
+    while (whereIsMyRequest(id1, id2) >= position) {} //active wait
+
+    printf("%d: Wchodzę do %d %d, jestem: %d\n", my_id, id1, id2, whereIsMyRequest(id1, id2));
 }
 
 void releaseCriticalSection(int id1, int id2){
-    //TODO
     printf("%d: Zwalniam %d %d\n", my_id, id1, id2);
+
     //remove my event
+    removeQ(id1, id2, my_request);
+
     //send broadcast
+
+    //TODO
 }
 
 int chooseCarrier(){
@@ -187,17 +215,26 @@ int chooseCarrier(){
 void * broadcast_thread(){
     //TODO
     printf("%d: Zaczynam wątek odbierający broadcast\n", my_id);
-    //receive
-    //decide
-    //insert/remove
+    while (1){
+        //receive
+        //decide
+        //insert/remove
+        //send confirm
+    }
+    
     return 0;
 }
 
 void * receive_thread(){
     //TODO
     printf("%d: Zaczynam wątek odbierający\n", my_id);
-    //receive
-    //increment confirm counter
+    
+    while(1){
+        //receive
+        //increment confirm counter
+        confirmation_counter++;
+    }
+
     return 0;
 }
 
