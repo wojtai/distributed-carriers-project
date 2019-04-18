@@ -1,4 +1,4 @@
-//#include "mpi.h"
+#include "mpi.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -7,10 +7,10 @@
 #include <time.h>
 
 #define MSG_SIZE 5
-#define MSG_SIZE_CONF 2
-#define L 10
+#define MSG_TAG 100
+#define L 5
 #define Ni 2
-#define N 40
+#define N 20
 
 #define RELEASE 0
 #define REQUEST 1
@@ -190,6 +190,14 @@ void park()
     printf("%d: Koniec stania\n", my_id);
 }
 
+void send_broadcast(int msg[]){
+    for(int i=0; i<nproc; i++){
+        if(i!=my_id){
+            MPI_Send(msg, MSG_SIZE, MPI_INT, i, MSG_TAG, MPI_COMM_WORLD);
+        }
+    }
+}
+
 //critical section request / release
 void requestCriticalSection(int id1, int id2)
 {
@@ -201,6 +209,8 @@ void requestCriticalSection(int id1, int id2)
     //place my event in the queue
     insertQ(id1, id2, my_request);
 
+    incrementClk1();
+
     //send broadcast
     int msg[MSG_SIZE];
     msg[0] = REQUEST;
@@ -208,14 +218,14 @@ void requestCriticalSection(int id1, int id2)
     msg[2] = l_clock;
     msg[3] = id1;
     msg[4] = id2;
-    MPI_Bcast(msg, MSG_SIZE, MSG_INT, my_id, MPI_COMM_WORLD);
+    
+    send_broadcast(msg);
     printf("%d: Wysłałem broadcast\n", my_id);
-
-    //initialize receive_thread
-    //TODO
     
     //await for confirm
     while (confirmation_counter < nproc - 1){} // active wait
+
+    printf("%d: Dostałem potwierdzenia\n", my_id);
 
     //await for place in queue
     int position = -1;
@@ -243,6 +253,12 @@ void releaseCriticalSection(int id1, int id2)
     //remove my event
     removeQ(id1, id2, my_request);
 
+    //printf("%d: Usunąłem moje żądanie z kolejki\n", my_id);
+
+    incrementClk1();
+
+    //printf("%d: Zwiększyłem zegar\n", my_id);
+
     //send broadcast
     int msg[MSG_SIZE];
     msg[0] = RELEASE;
@@ -250,8 +266,8 @@ void releaseCriticalSection(int id1, int id2)
     msg[2] = l_clock;
     msg[3] = id1;
     msg[4] = id2;
-    MPI_Bcast(msg, MSG_SIZE, MSG_INT, my_id, MPI_COMM_WORLD);
-    printf("%d: Wysłałem broadcast\n", my_id);
+    send_broadcast(msg);
+    //printf("%d: Wysłałem broadcast\n", my_id);
 }
 
 int chooseCarrier()
@@ -259,52 +275,47 @@ int chooseCarrier()
     return rand() % L;
 }
 
-void *broadcast_thread()
-{
-    printf("%d: Zaczynam wątek odbierający broadcast\n", my_id);
-    while (1)
-    {
-        //receive
-        int msg[MSG_SIZE];
-        MPI_Bcast(&msg, MSG_SIZE, MPI_INT, my_id, MPI_COMM_WORLD);
-        //decide
-        struct Request rec_request;
-        rec_request.id = msg[1];
-        rec_request.clk = msg[2];
-
-        if (msg[0] == RELEASE)
-        {
-            //remove request from queue
-            removeQ(msg[3],msg[4],rec_request);
-        }
-        else if (msg[0] == REQUEST) {
-            //insert request in queue
-            insertQ(msg[3],msg[4],rec_request);
-        }
-        //confirmation
-        int msg2[MSG_SIZE_CONF];
-        msg2[0] = CONFIRM;
-        msg2[1] = my_id;
-        MPI_Send(msg2, MSG_SIZE_CONF, MPI_INT, msg[1], MSG_HELLO, MPI_COMM_WORLD);
-        
-    }
-
-    return 0;
-}
-
 void *receive_thread()
 {
     printf("%d: Zaczynam wątek odbierający\n", my_id);
-    //TODO -> interesują nas id od jakich dostajemy potwierdzenie ?
+    
+    int msg[MSG_SIZE];
+    MPI_Status status;
+    struct Request rec_request;
+    int size;
     while (1)
     {
         //receive
-        int msg[MSG_SIZE_CONF];
-        MPI_Status status;
-        MPI_Recv(msg,MSG_SIZE_CONF, MPI_INT,MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,&status);
-        //increment confirm counter
+        //printf("%d: Czekam na odbiór\n", my_id);
+        MPI_Recv(msg, MSG_SIZE, MPI_INT,MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,&status);
+        MPI_Get_count( &status, MPI_INT, &size);
+        rec_request.id = msg[1];
+        rec_request.clk = msg[2];
+        //printf("%d: Odebrałem coś\n", my_id);
+        incrementClk2(msg[2]);
+        
         if(msg[0] == CONFIRM){
+            //increment confirm counter
             confirmation_counter++;
+            printf("%d: Potwierdzenie\n", my_id);
+        } else if(msg[0] == REQUEST) {
+            //insert to queueu
+            //printf("%d: Prośba\n", my_id);
+            insertQ(msg[3],msg[4],rec_request);
+            //prepare confirm
+            int receiver = msg[1];
+            msg[0] = CONFIRM;
+            msg[1] = my_id;
+            msg[2] = l_clock;
+            //send confirm
+            MPI_Send(msg, MSG_SIZE, MPI_INT, receiver, MSG_TAG, MPI_COMM_WORLD);
+
+        } else if(msg[0] == RELEASE) {
+            //remove request from queue
+            //printf("%d: Zwolnienie\n", my_id);
+            removeQ(msg[3],msg[4],rec_request);
+        } else {
+            printf("%d: To nie powinno się stać\n", my_id);
         }
     }
 
@@ -327,13 +338,14 @@ int main(int argc, char **argv)
     srand(time(0));
 
     // init mpi
-    // MPI_Init(&argc, &argv);
-    // MPI_Comm_size(MPI_COMM_WORLD, &nproc );
-    // MPI_Comm_rank(MPI_COMM_WORLD, &my_id );
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &nproc );
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_id );
 
-    //TODO init threads
-    pthread_t thread1, thread2;
-    pthread_create(&thread1, NULL, broadcast_thread, NULL);
+    //init threads
+    //pthread_t thread1
+    pthread_t thread2;
+    //pthread_create(&thread1, NULL, broadcast_thread, NULL);
     pthread_create(&thread2, NULL, receive_thread, NULL);
 
     while (1)
@@ -349,15 +361,15 @@ int main(int argc, char **argv)
         takeOff();
         releaseCriticalSection(carrier_i_want, RUNWAY);
         releaseCriticalSection(carrier_i_want, HANGAR);
-        break; //comment to run properly
+        //break; //comment to run properly
     }
 
     // join threads
-    pthread_join(thread1, NULL);
+    //pthread_join(thread1, NULL);
     pthread_join(thread2, NULL);
 
     // finish mpi
-    // MPI_Finalize();
+    MPI_Finalize();
 
     return 0;
 }
