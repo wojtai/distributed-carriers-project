@@ -5,12 +5,13 @@
 #include <pthread.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/types.h>
 
 #define MSG_SIZE 5
 #define MSG_TAG 100
 #define L 5
 #define Ni 2
-#define N 20
+#define N 40
 
 #define RELEASE 0
 #define REQUEST 1
@@ -51,8 +52,21 @@ struct Queue queues[L][2];
 
 pthread_mutex_t clock_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t confirmation_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t my_request_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t queue_mutex[L][2] = {{PTHREAD_MUTEX_INITIALIZER}};
+
+int confirmsReceived(){
+    int ret;
+    pthread_mutex_lock(&confirmation_counter_mutex);
+    if(confirmation_counter < nproc-1){
+        ret = 1;
+    } else {
+        ret = 0;
+    }
+    pthread_mutex_unlock(&confirmation_counter_mutex);
+    return ret;
+}
 
 //lamport clock
 int l_clock = 0;
@@ -111,7 +125,7 @@ void insertQ(int id1, int id2, struct Request req)
         {
             if (i == 0 || (req.clk == qu->queue[i - 1].clk && req.id > qu->queue[i].id) || req.clk > qu->queue[i - 1].clk)
             {
-                for (int j = qu->size - 1; j >= i; j--)
+                for (int j = qu->size; j >= i; j--)
                 {
                     qu->queue[j + 1] = qu->queue[j];
                 }
@@ -132,7 +146,7 @@ void removeQ(int id1, int id2, struct Request req)
     {
         if (qu->queue[i].id == req.id)
         {
-            for (int j = i; j < qu->size; j++)
+            for (int j = i; j < qu->size-1; j++)
             {
                 qu->queue[j] = qu->queue[j + 1];
             }
@@ -202,12 +216,22 @@ void send_broadcast(int msg[]){
 void requestCriticalSection(int id1, int id2)
 {
     printf("%d: Chcę %d %d\n", my_id, id1, id2);
+    pthread_mutex_lock(&confirmation_counter_mutex);
     confirmation_counter = 0;
+    pthread_mutex_unlock(&confirmation_counter_mutex);
+    pthread_mutex_lock(&my_request_mutex);
     my_request.id = my_id;
+    pthread_mutex_lock(&clock_mutex);
     my_request.clk = l_clock;
+    pthread_mutex_unlock(&clock_mutex);
+    pthread_mutex_unlock(&my_request_mutex);
 
     //place my event in the queue
+    pthread_mutex_lock(&my_request_mutex);
     insertQ(id1, id2, my_request);
+    pthread_mutex_unlock(&my_request_mutex);
+
+    printf("%d: Wstawiłem żądanie na kolejkę\n", my_id);
 
     incrementClk1();
 
@@ -215,7 +239,9 @@ void requestCriticalSection(int id1, int id2)
     int msg[MSG_SIZE];
     msg[0] = REQUEST;
     msg[1] = my_id;
+    pthread_mutex_lock(&clock_mutex);
     msg[2] = l_clock;
+    pthread_mutex_unlock(&clock_mutex);
     msg[3] = id1;
     msg[4] = id2;
     
@@ -223,7 +249,7 @@ void requestCriticalSection(int id1, int id2)
     printf("%d: Wysłałem broadcast\n", my_id);
     
     //await for confirm
-    while (confirmation_counter < nproc - 1){} // active wait
+    while (confirmsReceived()){} // active wait
 
     printf("%d: Dostałem potwierdzenia\n", my_id);
 
@@ -251,9 +277,11 @@ void releaseCriticalSection(int id1, int id2)
     printf("%d: Zwalniam %d %d\n", my_id, id1, id2);
 
     //remove my event
+    pthread_mutex_lock(&my_request_mutex);
     removeQ(id1, id2, my_request);
+    pthread_mutex_unlock(&my_request_mutex);
 
-    //printf("%d: Usunąłem moje żądanie z kolejki\n", my_id);
+    printf("%d: Usunąłem moje żądanie z kolejki\n", my_id);
 
     incrementClk1();
 
@@ -263,7 +291,9 @@ void releaseCriticalSection(int id1, int id2)
     int msg[MSG_SIZE];
     msg[0] = RELEASE;
     msg[1] = my_id;
+    pthread_mutex_lock(&clock_mutex);
     msg[2] = l_clock;
+    pthread_mutex_unlock(&clock_mutex);
     msg[3] = id1;
     msg[4] = id2;
     send_broadcast(msg);
@@ -279,12 +309,13 @@ void *receive_thread()
 {
     printf("%d: Zaczynam wątek odbierający\n", my_id);
     
-    int msg[MSG_SIZE];
-    MPI_Status status;
-    struct Request rec_request;
-    int size;
+    
     while (1)
     {
+        int msg[MSG_SIZE];
+        MPI_Status status;
+        struct Request rec_request;
+        int size;
         //receive
         //printf("%d: Czekam na odbiór\n", my_id);
         MPI_Recv(msg, MSG_SIZE, MPI_INT,MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,&status);
@@ -296,24 +327,31 @@ void *receive_thread()
         
         if(msg[0] == CONFIRM){
             //increment confirm counter
+            pthread_mutex_lock(&confirmation_counter_mutex);
             confirmation_counter++;
-            printf("%d: Potwierdzenie\n", my_id);
+            printf("%d: Potwierdzenie: %d od %d\n", my_id, confirmation_counter, msg[1]);
+            pthread_mutex_unlock(&confirmation_counter_mutex);
+
         } else if(msg[0] == REQUEST) {
             //insert to queueu
-            //printf("%d: Prośba\n", my_id);
+            printf("%d: Prośba\n", my_id);
             insertQ(msg[3],msg[4],rec_request);
+            printf("%d: Wstawiłem żądanie na kolejkę\n", my_id);
             //prepare confirm
             int receiver = msg[1];
             msg[0] = CONFIRM;
             msg[1] = my_id;
+            pthread_mutex_lock(&clock_mutex);
             msg[2] = l_clock;
+            pthread_mutex_unlock(&clock_mutex);
             //send confirm
             MPI_Send(msg, MSG_SIZE, MPI_INT, receiver, MSG_TAG, MPI_COMM_WORLD);
 
         } else if(msg[0] == RELEASE) {
             //remove request from queue
-            //printf("%d: Zwolnienie\n", my_id);
+            printf("%d: Zwolnienie\n", my_id);
             removeQ(msg[3],msg[4],rec_request);
+            printf("%d: Zdjąłem żądanie z kolejki\n", my_id);
         } else {
             printf("%d: To nie powinno się stać\n", my_id);
         }
@@ -347,6 +385,9 @@ int main(int argc, char **argv)
     pthread_t thread2;
     //pthread_create(&thread1, NULL, broadcast_thread, NULL);
     pthread_create(&thread2, NULL, receive_thread, NULL);
+
+    sleep(1);
+    printf("%d: Zaczynamy, PID: %d\n",my_id, getpid());
 
     while (1)
     {
