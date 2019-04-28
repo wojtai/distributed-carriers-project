@@ -282,7 +282,7 @@ void releaseCriticalSection(int id1, int id2)
     removeQ(id1, id2, my_request);
     pthread_mutex_unlock(&my_request_mutex);
 
-    printf("%d: Usunąłem moje żądanie z kolejki\n", my_id);
+    //printf("%d: Usunąłem moje żądanie z kolejki\n", my_id);
 
     incrementClk1();
 
