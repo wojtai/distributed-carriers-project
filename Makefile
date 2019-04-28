@@ -1,7 +1,4 @@
-all:
-	get
-	build
-	run
+all: get build run
 
 get:
 	git pull origin master
