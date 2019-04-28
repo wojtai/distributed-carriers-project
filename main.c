@@ -231,7 +231,7 @@ void requestCriticalSection(int id1, int id2)
     insertQ(id1, id2, my_request);
     pthread_mutex_unlock(&my_request_mutex);
 
-    printf("%d: Wstawiłem żądanie na kolejkę\n", my_id);
+    //printf("%d: Wstawiłem moje żądanie na kolejkę\n", my_id);
 
     incrementClk1();
 
@@ -270,6 +270,7 @@ void requestCriticalSection(int id1, int id2)
     while (whereIsMyRequest(id1, id2) >= position){} //active wait
 
     printf("%d: Wchodzę do %d %d, jestem: %d\n", my_id, id1, id2, whereIsMyRequest(id1, id2));
+    printQueue(id1, id2)
 }
 
 void releaseCriticalSection(int id1, int id2)
@@ -329,14 +330,14 @@ void *receive_thread()
             //increment confirm counter
             pthread_mutex_lock(&confirmation_counter_mutex);
             confirmation_counter++;
-            printf("%d: Potwierdzenie: %d od %d\n", my_id, confirmation_counter, msg[1]);
+            //printf("%d: Potwierdzenie: %d od %d\n", my_id, confirmation_counter, msg[1]);
             pthread_mutex_unlock(&confirmation_counter_mutex);
 
         } else if(msg[0] == REQUEST) {
             //insert to queueu
-            printf("%d: Prośba\n", my_id);
+            //printf("%d: Prośba\n", my_id);
             insertQ(msg[3],msg[4],rec_request);
-            printf("%d: Wstawiłem żądanie na kolejkę\n", my_id);
+            //printf("%d: Wstawiłem żądanie na kolejkę\n", my_id);
             //prepare confirm
             int receiver = msg[1];
             msg[0] = CONFIRM;
@@ -349,9 +350,9 @@ void *receive_thread()
 
         } else if(msg[0] == RELEASE) {
             //remove request from queue
-            printf("%d: Zwolnienie\n", my_id);
+            //printf("%d: Zwolnienie\n", my_id);
             removeQ(msg[3],msg[4],rec_request);
-            printf("%d: Zdjąłem żądanie z kolejki\n", my_id);
+            //printf("%d: Zdjąłem żądanie z kolejki\n", my_id);
         } else {
             printf("%d: To nie powinno się stać\n", my_id);
         }
