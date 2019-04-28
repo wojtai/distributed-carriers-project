@@ -270,7 +270,7 @@ void requestCriticalSection(int id1, int id2)
     while (whereIsMyRequest(id1, id2) >= position){} //active wait
 
     printf("%d: Wchodzę do %d %d, jestem: %d\n", my_id, id1, id2, whereIsMyRequest(id1, id2));
-    printQueue(id1, id2)
+    printQueue(id1, id2);
 }
 
 void releaseCriticalSection(int id1, int id2)
