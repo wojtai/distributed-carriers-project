@@ -233,8 +233,6 @@ void requestCriticalSection(int id1, int id2)
 
     //printf("%d: Wstawiłem moje żądanie na kolejkę\n", my_id);
 
-    incrementClk1();
-
     //send broadcast
     int msg[MSG_SIZE];
     msg[0] = REQUEST;
@@ -247,6 +245,8 @@ void requestCriticalSection(int id1, int id2)
     
     send_broadcast(msg);
     printf("%d: Wysłałem broadcast\n", my_id);
+
+    incrementClk1();
     
     //await for confirm
     while (confirmsReceived()){} // active wait
