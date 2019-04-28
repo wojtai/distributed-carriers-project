@@ -102,7 +102,7 @@ void printQueue(int id1, int id2)
     pthread_mutex_lock(&queue_mutex[id1][id2]);
     struct Queue *qu = &queues[id1][id2];
     int i = 0;
-    printf("queue size: %ld\n", qu->size);
+    printf("%d: queue %d %d size: %ld\n",my_id, id1, id2, qu->size);
     for (i = 0; i < qu->size; i++)
     {
         printRequest(&qu->queue[i]);
