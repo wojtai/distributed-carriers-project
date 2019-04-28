@@ -94,7 +94,7 @@ void initQueue(int id1, int id2)
 //debug functions
 void printRequest(struct Request *req)
 {
-    printf("id: %d\tclk: %d\n", req->id, req->clk);
+    printf("%d: id: %d\tclk: %d\n",my_id, req->id, req->clk);
 }
 
 void printQueue(int id1, int id2)
@@ -123,7 +123,7 @@ void insertQ(int id1, int id2, struct Request req)
     {
         for (int i = qu->size; i >= 0; i--)
         {
-            if (i == 0 || (req.clk == qu->queue[i - 1].clk && req.id > qu->queue[i].id) || req.clk > qu->queue[i - 1].clk)
+            if (i == 0 || (req.clk == qu->queue[i].clk && req.id > qu->queue[i].id) || req.clk > qu->queue[i - 1].clk)
             {
                 for (int j = qu->size; j >= i; j--)
                 {
