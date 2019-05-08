@@ -164,7 +164,7 @@ void removeQ(int id1, int id2, struct Request req)
     qu->size--;
     pthread_mutex_unlock(&queue_mutex[id1][id2]);
     if(found == 0){
-        printf("%d: Nie znaleziono elementu do usuniecia", my_id);
+        printf("%d: Nie znaleziono elementu do usuniecia\n", my_id);
     }
 }
 
@@ -184,7 +184,7 @@ int whereIsMyRequest(int id1, int id2)
     }
     pthread_mutex_unlock(&queue_mutex[id1][id2]);
     if(ret == -1){
-        printf("%d: moje zadanie nie znalezione na kolejce", my_id);
+        printf("%d: moje zadanie nie znalezione na kolejce\n", my_id);
     }
     return ret;
 }
