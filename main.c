@@ -225,7 +225,7 @@ void send_broadcast(int msg[]){
     for(int i=0; i<nproc; i++){
         if(i!=my_id){
             MPI_Send(msg, MSG_SIZE, MPI_INT, i, MSG_TAG, MPI_COMM_WORLD);
-            printf("%d: Wysłałem do %d\n",my_id, i);
+            //printf("%d: Wysłałem do %d\n",my_id, i);
         }
     }
     pthread_mutex_unlock(&send_mutex);
@@ -342,7 +342,7 @@ void *receive_thread()
         MPI_Get_count( &status, MPI_INT, &size);
         rec_request.id = msg[1];
         rec_request.clk = msg[2];
-        printf("%d: Odebrałem coś size %d\n", my_id, size);
+        //printf("%d: Odebrałem coś size %d\n", my_id, size);
         incrementClk2(msg[2]);
         
         if(msg[0] == CONFIRM){
