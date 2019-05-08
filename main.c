@@ -140,12 +140,14 @@ void insertQ(int id1, int id2, struct Request req)
 
 void removeQ(int id1, int id2, struct Request req)
 {
+    int found = 0;
     pthread_mutex_lock(&queue_mutex[id1][id2]);
     struct Queue *qu = &queues[id1][id2];
     for (int i = 0; i < qu->size; i++)
     {
         if (qu->queue[i].id == req.id)
         {
+            found = 1;
             for (int j = i; j < qu->size-1; j++)
             {
                 qu->queue[j] = qu->queue[j + 1];
@@ -155,6 +157,9 @@ void removeQ(int id1, int id2, struct Request req)
     }
     qu->size--;
     pthread_mutex_unlock(&queue_mutex[id1][id2]);
+    if(found == 0){
+        printf("%d: Nie znaleziono elementu do usuniecia", my_id);
+    }
 }
 
 int whereIsMyRequest(int id1, int id2)
@@ -172,6 +177,9 @@ int whereIsMyRequest(int id1, int id2)
         }
     }
     pthread_mutex_unlock(&queue_mutex[id1][id2]);
+    if(ret == -1){
+        printf('%d: moje zadanie nie znalezione na kolejce', my_id);
+    }
     return ret;
 }
 
