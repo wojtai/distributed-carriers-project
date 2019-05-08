@@ -54,6 +54,8 @@ pthread_mutex_t clock_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t confirmation_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t my_request_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+pthread_mutex_t send_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 pthread_mutex_t queue_mutex[L][2] = {{PTHREAD_MUTEX_INITIALIZER}};
 
 int confirmsReceived(){
@@ -219,11 +221,13 @@ void park()
 }
 
 void send_broadcast(int msg[]){
+    pthread_mutex_lock(&send_mutex);
     for(int i=0; i<nproc; i++){
         if(i!=my_id){
             MPI_Send(msg, MSG_SIZE, MPI_INT, i, MSG_TAG, MPI_COMM_WORLD);
         }
     }
+    pthread_mutex_unlock(&send_mutex);
 }
 
 //critical section request / release
@@ -360,7 +364,9 @@ void *receive_thread()
             msg[2] = l_clock;
             pthread_mutex_unlock(&clock_mutex);
             //send confirm
+            pthread_mutex_lock(&send_mutex);
             MPI_Send(msg, MSG_SIZE, MPI_INT, receiver, MSG_TAG, MPI_COMM_WORLD);
+            pthread_mutex_unlock(&send_mutex);
 
         } else if(msg[0] == RELEASE) {
             //remove request from queue
