@@ -184,7 +184,7 @@ int whereIsMyRequest(int id1, int id2)
     }
     pthread_mutex_unlock(&queue_mutex[id1][id2]);
     if(ret == -1){
-        printf('%d: moje zadanie nie znalezione na kolejce', my_id);
+        printf("%d: moje zadanie nie znalezione na kolejce", my_id);
     }
     return ret;
 }
