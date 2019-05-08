@@ -88,6 +88,12 @@ void initQueue(int id1, int id2)
 {
     pthread_mutex_lock(&queue_mutex[id1][id2]);
     queues[id1][id2].size = 0;
+    for(int i=0; i<N; i++){
+        Request temp;
+        temp.id = 0;
+        temp.clk = 0;
+        queues[id1][id2].queue[i] = temp;
+    }
     pthread_mutex_unlock(&queue_mutex[id1][id2]);
 }
 
