@@ -9,7 +9,7 @@
 
 #define MSG_SIZE 5
 #define MSG_TAG 100
-#define L 4
+#define L 2
 #define Ni 2
 #define N 40
 
