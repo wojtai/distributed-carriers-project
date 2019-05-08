@@ -194,7 +194,7 @@ int whereIsMyRequest(int id1, int id2)
 //airplane operations
 void flight()
 {
-    int t = rand() % 5 + 5;
+    int t = rand() % 3 + 2;
     printf("%d: Lecę, %d s\n", my_id, t);
     sleep(t);
     printf("%d: Koniec lotu\n", my_id);
@@ -214,7 +214,7 @@ void takeOff()
 
 void park()
 {
-    int t = rand() % 4 + 4;
+    int t = rand() % 4 + 5;
     printf("%d: Stoję %d s\n", my_id, t);
     sleep(t);
     printf("%d: Koniec stania\n", my_id);
@@ -263,14 +263,14 @@ void requestCriticalSection(int id1, int id2)
     msg[4] = id2;
     
     send_broadcast(msg);
-    printf("%d: Wysłałem broadcast\n", my_id);
+    //printf("%d: Wysłałem broadcast\n", my_id);
 
     incrementClk1();
     
     //await for confirm
     while (confirmsReceived()){} // active wait
 
-    printf("%d: Dostałem potwierdzenia\n", my_id);
+    //printf("%d: Dostałem potwierdzenia\n", my_id);
 
     //await for place in queue
     int position = -1;
@@ -288,13 +288,13 @@ void requestCriticalSection(int id1, int id2)
     }
     while (whereIsMyRequest(id1, id2) >= position){} //active wait
 
-    printf("%d: Wchodzę do %d %d, jestem: %d\n", my_id, id1, id2, whereIsMyRequest(id1, id2));
-    printQueue(id1, id2);
+    //printf("%d: Wchodzę do %d %d, jestem: %d\n", my_id, id1, id2, whereIsMyRequest(id1, id2));
+    //printQueue(id1, id2);
 }
 
 void releaseCriticalSection(int id1, int id2)
 {
-    printf("%d: Zwalniam %d %d\n", my_id, id1, id2);
+    //printf("%d: Zwalniam %d %d\n", my_id, id1, id2);
 
     //remove my event
     pthread_mutex_lock(&my_request_mutex);
