@@ -373,13 +373,13 @@ int main(int argc, char **argv)
         }
     }
 
-    // init random generator
-    srand(time(0));
-
     // init mpi
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc );
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id );
+
+    // init random generator
+    srand(time(0)+my_id);
 
     //init threads
     //pthread_t thread1
