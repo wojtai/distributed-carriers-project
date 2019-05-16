@@ -7,7 +7,7 @@ build:
 	mpicc main.c -o main
 
 run:
-	mpirun -n 4 main
+	mpirun -n 8 main
 
 publish:
 	git add main.c mpi_hosts Makefile

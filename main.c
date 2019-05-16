@@ -59,6 +59,7 @@ pthread_mutex_t send_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t queue_mutex[L][2] = {{PTHREAD_MUTEX_INITIALIZER}};
 
 pthread_mutex_t wait_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t wait_conditional = PTHREAD_COND_INITIALIZER;
 
 int confirmsReceived(){
     int ret;
@@ -84,7 +85,7 @@ void incrementClk1()
 void incrementClk2(int i_clock)
 {
     pthread_mutex_lock(&clock_mutex);
-    l_clock = max(l_clock, i_clock) + 1;
+    l_clock = max(l_clock, i_clock);// + 1;
     pthread_mutex_unlock(&clock_mutex);
 }
 
@@ -263,14 +264,18 @@ void requestCriticalSection(int id1, int id2)
     pthread_mutex_unlock(&clock_mutex);
     msg[3] = id1;
     msg[4] = id2;
-    
-    send_broadcast(msg);
-    //printf("%d: Wysłałem broadcast\n", my_id);
 
     incrementClk1();
     
+    send_broadcast(msg);
+    //printf("%d: Wysłałem broadcast\n", my_id);
+    
     //await for confirm
-    while (confirmsReceived()){} // active wait
+    while (confirmsReceived()){
+        pthread_mutex_lock(&wait_mutex);
+        pthread_cond_wait(&wait_conditional, &wait_mutex);
+        pthread_mutex_unlock(&wait_mutex);
+    } 
 
     //printf("%d: Dostałem potwierdzenia\n", my_id);
 
@@ -288,10 +293,13 @@ void requestCriticalSection(int id1, int id2)
     {
         printf("%d: To nie powinno się stać %d %d\n", my_id, id1, id2);
     }
+
+    // wait for request to reach proper place in queue
     while (whereIsMyRequest(id1, id2) >= position){
         pthread_mutex_lock(&wait_mutex);
+        pthread_cond_wait(&wait_conditional, &wait_mutex);
         pthread_mutex_unlock(&wait_mutex);
-    } // wait
+    } 
 
     //printf("%d: Wchodzę do %d %d, jestem: %d\n", my_id, id1, id2, whereIsMyRequest(id1, id2));
     //printQueue(id1, id2);
@@ -308,9 +316,7 @@ void releaseCriticalSection(int id1, int id2)
 
     //printf("%d: Usunąłem moje żądanie z kolejki\n", my_id);
 
-    incrementClk1();
-
-    //printf("%d: Zwiększyłem zegar\n", my_id);
+    //incrementClk1();
 
     //send broadcast
     int msg[MSG_SIZE];
@@ -343,7 +349,7 @@ void *receive_thread()
         int size;
         //receive
         //printf("%d: Czekam na odbiór\n", my_id);
-        pthread_mutex_lock(&wait_mutex);
+        //pthread_mutex_lock(&wait_mutex);
         MPI_Recv(msg, MSG_SIZE, MPI_INT,MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,&status);
         MPI_Get_count( &status, MPI_INT, &size);
         rec_request.id = msg[1];
@@ -383,7 +389,8 @@ void *receive_thread()
         } else {
             printf("%d: To nie powinno się stać\n", my_id);
         }
-        pthread_mutex_unlock(&wait_mutex);
+        pthread_cond_signal(&wait_conditional);
+        //pthread_mutex_unlock(&wait_mutex);
     }
 
     return 0;
@@ -406,16 +413,14 @@ int main(int argc, char **argv)
     MPI_Init_thread(&argc, &argv, 3, &temp);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc );
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id );
-
     printf("Poziom sync: %d\n", temp);
+
     // init random generator
     srand(time(0)+my_id);
 
     //init threads
-    //pthread_t thread1
-    pthread_t thread2;
-    //pthread_create(&thread1, NULL, broadcast_thread, NULL);
-    pthread_create(&thread2, NULL, receive_thread, NULL);
+    pthread_t thread;
+    pthread_create(&thread, NULL, receive_thread, NULL);
 
     sleep(1);
     printf("%d: Zaczynamy, PID: %d\n",my_id, getpid());
@@ -437,8 +442,7 @@ int main(int argc, char **argv)
     }
 
     // join threads
-    //pthread_join(thread1, NULL);
-    pthread_join(thread2, NULL);
+    pthread_join(thread, NULL);
 
     // finish mpi
     MPI_Finalize();
